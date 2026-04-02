@@ -25,7 +25,12 @@ interface Me {
   classroomIds: string[]
 }
 
-const BASE = process.env.NEXT_PUBLIC_BASE_URL || ''
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL || ''
+}
 
 export default function TeacherPage() {
   const router = useRouter()
@@ -279,8 +284,13 @@ export default function TeacherPage() {
               </p>
               <div className="slug-row">
                 <span className="slug-label">Student</span>
-                <span className="slug-val" style={{ fontSize: 12 }}>{`${BASE}/classrooms/${selectedClassroom.identifier}`}</span>
-                <button className="copy-btn" onClick={() => copy(`${BASE}/classrooms/${selectedClassroom.identifier}`)}>Copy</button>
+                <span className="slug-val" style={{ fontSize: 12 }}>{`${getBaseUrl()}/classrooms/${selectedClassroom.identifier}`}</span>
+                <button className="copy-btn" onClick={() => copy(`${getBaseUrl()}/classrooms/${selectedClassroom.identifier}`)}>Copy</button>
+              </div>
+              <div className="slug-row" style={{ marginTop: 8 }}>
+                <span className="slug-label">Teacher</span>
+                <span className="slug-val" style={{ fontSize: 12 }}>{`${getBaseUrl()}/classrooms/${selectedClassroom.identifier}?teacher=true`}</span>
+                <button className="copy-btn" onClick={() => copy(`${getBaseUrl()}/classrooms/${selectedClassroom.identifier}?teacher=true`)}>Copy</button>
               </div>
               <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 8 }}>
                 Tap flow: NFC tag → TagTech → checks active link → redirects student instantly

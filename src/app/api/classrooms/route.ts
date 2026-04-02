@@ -27,41 +27,53 @@ export async function GET(req: NextRequest) {
 
 // POST /api/classrooms - create (admin only)
 export async function POST(req: NextRequest) {
-  const admin = await requireRole(req, 'admin')
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const admin = await requireRole(req, 'admin')
+    if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, teacherName, teacherEmail, teacherPassword } = await req.json()
-  if (!name || !teacherEmail || !teacherPassword)
-    return NextResponse.json({ error: 'name, teacherEmail, teacherPassword required' }, { status: 400 })
+    const { name, teacherName, teacherEmail, teacherPassword } = await req.json()
+    if (!name || !teacherEmail || !teacherPassword)
+      return NextResponse.json({ error: 'name, teacherEmail, teacherPassword required' }, { status: 400 })
 
-  await connectDB()
+    await connectDB()
 
-  const identifier = generateIdentifier(name)
+    const identifier = generateIdentifier(name)
 
-  // check if identifier already exists
-  const existing = await Classroom.findOne({ identifier })
-  if (existing) return NextResponse.json({ error: 'Classroom name conflicts with existing identifier' }, { status: 400 })
+    // check if identifier already exists
+    const existing = await Classroom.findOne({ identifier })
+    if (existing) return NextResponse.json({ error: 'Classroom name conflicts with existing identifier' }, { status: 400 })
 
-  const classroom = await Classroom.create({ name, identifier, teacherEmails: [teacherEmail.toLowerCase()] })
-
-  // create teacher user if not exists
-  const exists = await User.findOne({ email: teacherEmail.toLowerCase() })
-  if (!exists) {
-    const passwordHash = await bcrypt.hash(teacherPassword, 10)
-    await User.create({
-      name: teacherName || teacherEmail.split('@')[0],
-      email: teacherEmail.toLowerCase(),
-      passwordHash,
-      role: 'teacher',
-      classroomIds: [classroom._id.toString()],
+    const classroom = await Classroom.create({
+      name,
+      identifier,
+      studentSlug: identifier,
+      teacherSlug: `${identifier}-teacher`,
+      teacherEmails: [teacherEmail.toLowerCase()],
     })
-  } else {
-    // add classroom to existing teacher's classroomIds
-    await User.findOneAndUpdate(
-      { email: teacherEmail.toLowerCase() },
-      { $addToSet: { classroomIds: classroom._id.toString() } }
-    )
-  }
 
-  return NextResponse.json({ classroom }, { status: 201 })
+    // create teacher user if not exists
+    const exists = await User.findOne({ email: teacherEmail.toLowerCase() })
+    if (!exists) {
+      const passwordHash = await bcrypt.hash(teacherPassword, 10)
+      await User.create({
+        name: teacherName || teacherEmail.split('@')[0],
+        email: teacherEmail.toLowerCase(),
+        passwordHash,
+        role: 'teacher',
+        classroomIds: [classroom._id.toString()],
+      })
+    } else {
+      // add classroom to existing teacher's classroomIds
+      await User.findOneAndUpdate(
+        { email: teacherEmail.toLowerCase() },
+        { $addToSet: { classroomIds: classroom._id.toString() } }
+      )
+    }
+
+    return NextResponse.json({ classroom }, { status: 201 })
+  } catch (err) {
+    console.error('Classroom POST error', err)
+    const message = err instanceof Error ? err.message : 'Server error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

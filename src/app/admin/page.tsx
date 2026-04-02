@@ -10,10 +10,15 @@ interface Classroom {
   createdAt: string
 }
 
-const BASE = process.env.NEXT_PUBLIC_BASE_URL || ''
+const getBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL || ''
+}
 
 function classroomUrl(identifier: string, type: 'student' | 'teacher') {
-  const baseUrl = `${BASE}/classrooms/${identifier}`
+  const baseUrl = `${getBaseUrl()}/classrooms/${identifier}`
   return type === 'teacher' ? `${baseUrl}?teacher=true` : baseUrl
 }
 
@@ -50,17 +55,31 @@ export default function AdminPage() {
     e.preventDefault()
     setFormError('')
     setCreating(true)
-    const res = await fetch('/api/classrooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, teacherName, teacherEmail, teacherPassword }),
-    })
-    const data = await res.json()
-    if (!res.ok) { setFormError(data.error || 'Failed'); setCreating(false); return }
-    setName(''); setTeacherName(''); setTeacherEmail(''); setTeacherPassword('')
-    setCreating(false)
-    showToast('Classroom created')
-    load()
+
+    let data: any = { error: 'Unknown error' }
+    try {
+      const res = await fetch('/api/classrooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, teacherName, teacherEmail, teacherPassword }),
+      })
+      data = await res.json().catch(() => ({ error: 'Invalid server response' }))
+
+      if (!res.ok) {
+        setFormError(data.error || `Failed (${res.status})`)
+        setCreating(false)
+        return
+      }
+
+      setName(''); setTeacherName(''); setTeacherEmail(''); setTeacherPassword('')
+      setCreating(false)
+      showToast('Classroom created')
+      load()
+    } catch (err) {
+      console.error('createClassroom error', err)
+      setFormError(err instanceof Error ? err.message : 'Server error')
+      setCreating(false)
+    }
   }
 
   async function deleteClassroom(id: string, roomName: string) {
