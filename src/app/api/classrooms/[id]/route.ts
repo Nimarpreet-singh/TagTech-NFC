@@ -6,13 +6,13 @@ import { requireRole } from '@/lib/auth'
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { identifier: string } }
 ) {
   const admin = await requireRole(req, 'admin')
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   await connectDB()
-  await Classroom.findByIdAndDelete(params.id)
-  await Session.deleteOne({ classroomId: params.id })
+  await Classroom.findByIdAndDelete(params.identifier)
+  await Session.deleteOne({ classroomId: params.identifier })
   return NextResponse.json({ ok: true })
 }
